@@ -6,20 +6,29 @@ BEGIN
 END
 GO
 
+
 CREATE PROCEDURE dbo.uspxSpaceUsed
 	@TableName NVARCHAR(255) = NULL,
 	@OrderBySpaceUsed BIT = 1
 AS 
-    BEGIN
+BEGIN
+/*
+Output the details of the amount of space used by a table.
+
+20140124	dungeym		initial scripting
+*/
 	
     IF OBJECT_ID('tempdb..#Tables') IS NOT NULL BEGIN DROP TABLE #Tables END;
 	IF OBJECT_ID('tempdb..#SpaceUsed') IS NOT NULL BEGIN DROP TABLE #SpaceUsed END;
 		
+		
     SET NOCOUNT ON
     DECLARE @TSQL VARCHAR(255) = 'INSERT #Tables SELECT TABLE_NAME FROM ' + DB_NAME() + '.INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = ''BASE TABLE'''
     
+    
     CREATE TABLE #Tables(name VARCHAR(255))
     EXEC (@TSQL)
+    
     
     CREATE TABLE #SpaceUsed
 	(
@@ -31,8 +40,8 @@ AS
 		[Unused] 		VARCHAR(18)
 	)
     
-    DECLARE @Name VARCHAR(255) = ''
     
+    DECLARE @Name VARCHAR(255) = ''    
     WHILE EXISTS (SELECT * FROM #Tables WHERE [Name] > @Name) 
 	BEGIN
 		SELECT @Name = MIN(name) 
@@ -43,10 +52,12 @@ AS
 		EXEC (@TSQL)
 	END
 	
+	
     UPDATE #SpaceUsed SET [Total] = REPLACE([Total], 'KB', '')
     UPDATE #SpaceUsed SET [Data] = REPLACE([Data], 'KB', '')
     UPDATE #SpaceUsed SET [Indexes] = REPLACE([Indexes], 'KB', '')
     UPDATE #SpaceUsed SET [Unused] = REPLACE([Unused], 'KB', '')
+    
     
     SELECT  
 		[Name]
@@ -66,11 +77,13 @@ AS
     CASE WHEN @OrderBySpaceUsed = 1 THEN CONVERT(MONEY, ([Data] / 1024)) END DESC,
 	CASE WHEN @OrderBySpaceUsed = 0 THEN [Name] END ASC
     
+    
     IF OBJECT_ID('tempdb..#Tables') IS NOT NULL BEGIN DROP TABLE #Tables END;
     IF OBJECT_ID('tempdb..#SpaceUsed') IS NOT NULL BEGIN DROP TABLE #SpaceUsed END;
 	
 END
 GO
+
 
 GRANT EXECUTE ON dbo.uspxSpaceUsed TO PUBLIC
 GO

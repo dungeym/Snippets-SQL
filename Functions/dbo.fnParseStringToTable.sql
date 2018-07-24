@@ -1,53 +1,52 @@
-IF EXISTS(SELECT * FROM sys.objects WHERE name = 'fnParseStringToTable' AND type = 'TF')
+
+IF EXISTS (SELECT * FROM sys.objects WHERE name = 'fnParseStringToTable')
 BEGIN
-	DROP FUNCTION fnParseStringToTable
-	PRINT '...DROPPED FUNCTION [fnParseStringToTable]'
+	DROP FUNCTION dbo.fnParseStringToTable
+	PRINT 'DROP FUNCTION dbo.fnParseStringToTable'
 END
 GO
 
 
 CREATE FUNCTION dbo.fnParseStringToTable(@Value VARCHAR(MAX), @Delimiter VARCHAR(10))
-	RETURNS @ParseResult TABLE (id INT NOT NULL IDENTITY(1, 1), Field VARCHAR(MAX))
+RETURNS @ParseResult TABLE (id INT NOT NULL IDENTITY(1, 1), Field VARCHAR(MAX))
 AS
 BEGIN
 /*
-Split the @Value using the @Delimiter and return table containing a row for each value in the split string.
-
-xx.xx.10	ekrems		initial scripting
+Create a table from the input @Value by splitting the contents according to the @Delimiter string/
+Return the table.
 */  
 
-	DECLARE @Pos INT
-	DECLARE @LastPos INT
+	DECLARE @Position INT
+	DECLARE @LastPosition INT
 	DECLARE @Field VARCHAR(MAX)
-	DECLARE @DelimiterLength INT
-	DECLARE @StringLength INT
-
-	SELECT @StringLength = LEN(@Value), @DelimiterLength = LEN(@Delimiter)
+	DECLARE @DelimiterLength INT = LEN(@Delimiter)
+	DECLARE @StringLength INT = LEN(@Value)
 
 	IF(@StringLength > 0 AND @DelimiterLength > 0)
 	BEGIN
-		SELECT @Pos = CHARINDEX(@Delimiter, @Value), @LastPos = 1
-		WHILE @Pos > 0
+		SELECT @Position = CHARINDEX(@Delimiter, @Value), @LastPosition = 1
+		
+		WHILE @Position > 0
 		BEGIN
-			SELECT @Field = SUBSTRING(@Value, @LastPos, @Pos - @LastPos)
+			SELECT @Field = SUBSTRING(@Value, @LastPosition, @Position - @LastPosition)
 			
 			INSERT INTO @ParseResult (Field) VALUES (LTRIM(RTRIM(@Field)))
 
-			SELECT @LastPos = @Pos + @DelimiterLength
-			SELECT @Pos = charindex(@Delimiter, @Value, @LastPos)  
+			SELECT @LastPosition = @Position + @DelimiterLength
+			SELECT @Position = CHARINDEX(@Delimiter, @Value, @LastPosition)  
 		END
 
-		-- If the delimiter is last character then add empty row
-		IF @LastPos = LEN(@Value) + @DelimiterLength
+		-- If the delimiter is last character then add empty row.
+		IF @LastPosition = LEN(@Value) + @DelimiterLength
 		BEGIN
 			SELECT @Field = ''
 			INSERT INTO @ParseResult (Field) VALUES (LTRIM(RTRIM(@Field)))
 		END
 		ELSE
-			-- If still data after last delimiter then load
-			IF @LastPos < @StringLength + @DelimiterLength
+			-- If there is still data after last delimiter then add it as the last row.
+			IF @LastPosition < @StringLength + @DelimiterLength
 			BEGIN
-				SELECT @Field = SUBSTRING(@Value, @LastPos, (@StringLength - @LastPos) + @DelimiterLength)
+				SELECT @Field = SUBSTRING(@Value, @LastPosition, (@StringLength - @LastPosition) + @DelimiterLength)
 				INSERT INTO @ParseResult (Field) VALUES (LTRIM(RTRIM(@Field)))
 			END
 	END
@@ -56,20 +55,3 @@ xx.xx.10	ekrems		initial scripting
 
 END
 GO
-
--- Test: INNER JOIN should  lmit the results to 1-6 values
-SELECT MyNumber FROM
-(
-SELECT 1 AS MyNumber
-UNION
-SELECT 2
-UNION
-SELECT 3
-UNION
-SELECT 4
-UNION
-SELECT 5
-UNION
-SELECT 6
-) AS cte
-INNER JOIN dbo.fnParseStringToTable('0;1;2;3;4;5;6;7;8;9;', ';') fn ON fn.id = cte.MyNumber
